@@ -40,6 +40,10 @@ print("Writing to: " + ofile)
 
 started = time.time()
 
+with open(ofile, "a") as theFile:
+	# print header
+	theFile.write("timestamp,host,response" + "\n")
+theFile.close()
 
 while True:
 	if time.time() - started < end:
