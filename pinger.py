@@ -31,22 +31,25 @@ urls = [
 	["google (UK)", "www.google.co.uk"], # 74.125.136.94
 	["router", "192.168.1.254"]
 ]
-subprocess.call("rm results/" + sys.argv[1] + ".csv", shell=True)
 
-print("Writing to results/" + sys.argv[1] + ".csv")
+startdt = datetime.datetime.now().strftime(format = "%Y-%m-%d_%H-%M-%S")
+
+ofile = "results/" + sys.argv[1] + "_" + startdt + ".csv"
+
+print("Writing to: " + ofile)
+
 started = time.time()
 
-now = str(datetime.datetime.now())
 
 while True:
 	if time.time() - started < end:
-		with open("results/" + sys.argv[1] + "_" + now + ".csv", "a") as theFile:
+		with open(ofile, "a") as theFile:
 			for url in urls:
 				p = subprocess.Popen(['ping','-c','1', url[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				out, err = p.communicate()
 
 				out = out.split("\n")[1].split("time=")[-1].split(" ")[0]																																																																						
-				out = str(datetime.datetime.now()) + "," + url[0] + "," + out
+				out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + out
 				theFile.write(out + "\n")
 
 				out = out.split(",")
