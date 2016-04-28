@@ -197,24 +197,24 @@ kable(
 )
 ````
 
+Ping data, key stats for `r min(allPinger_DT$r_datetime)` to `r max(allPinger_DT$r_datetime)` for all data sources
 ````{r, echo=FALSE}
 # make a pretty graph
-gtitle <- paste0("Ping Data: Key stats ", 
-                 min(allPinger_DT$r_datetime), 
-                 " to ",
-                 max(allPinger_DT$r_datetime), 
-                 " for ",
-                 infile
-                 )
+
+# fix the source labels to make this easier to read
+# this is very hard to automate unless there is a naming convention for input files
+allPinger_DT$label <- ifelse(grepl("on_annex_wifi",allPinger_DT$source),"annex_wifi",allPinger_DT$source)
+allPinger_DT$label <- ifelse(grepl("on_ethernet",allPinger_DT$source),"on_ethernet",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("on_bthub",allPinger_DT$source),"on_bthub",allPinger_DT$label)
+  
 ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) + 
   geom_point(aes(color = host, col = "Response time (ms)")) +
   theme(legend.position = "bottom") +
   theme(legend.title = element_blank()) +
-  labs(title = gtitle,
-       x = "Time/date",
+  labs(x = "Time/date",
        y = "ms"
   ) +
-  facet_grid(source ~ .)
+  facet_grid(label ~ .)
 
 ggsave(paste0(dpath, "all_data.png"), 
        width = 10, height = 10)
