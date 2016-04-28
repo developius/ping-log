@@ -18,17 +18,17 @@ import datetime
 import sys
 
 
-# how long to run for in seconds?
-end = float(sys.argv[2])
+# how long to run for in minutes?
+duration = float(sys.argv[2])
 # duration between pings (seconds)
 gap = float(sys.argv[3])
 
 
-print("Running for " + str(end) + " seconds")
+print("Running for " + str(duration) + " minutes")
 print("Gap between pings: " + str(gap) + " second/s")
 
 urls = [
-	["google (UK)", "www.google.co.uk"], # 74.125.136.94
+	["www.google.co.uk", "www.google.co.uk"], # 74.125.136.94
 	["router", "192.168.1.254"]
 ]
 
@@ -42,18 +42,27 @@ started = time.time()
 
 with open(ofile, "a") as theFile:
 	# print header
-	theFile.write("timestamp,host,response" + "\n")
+	theFile.write("timestamp,host,milliseconds" + "\n")
 theFile.close()
 
 while True:
-	if time.time() - started < end:
+	if time.time() - (started*60) < duration: # check against duration which is in minutes
 		with open(ofile, "a") as theFile:
 			for url in urls:
 				p = subprocess.Popen(['ping','-c','1', url[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				out, err = p.communicate()
-
-				out = out.split("\n")[1].split("time=")[-1].split(" ")[0]																																																																						
-				out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + out
+				try:
+					out = out.split("\n")[1].split("time=")[-1].split(" ")[0]	
+					# set a nice datetime for R etc																																																																					
+					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + out
+				except IndexError:
+					# Error in indexing the split list
+					# Probably no internet connection at all so ping has failed
+					# set the error message to be output
+					# need to remove \n from the end of the error string
+					error = ("%s" % err)
+					# set a nice datetime for R etc
+					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + error.split("\n")[0]
 				theFile.write(out + "\n")
 
 				out = out.split(",")
