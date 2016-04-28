@@ -47,7 +47,7 @@ library(knitr) # for kable
 # we may wish to load a number of them into different tables and then rbind
 # but watch for timeing errors - e.g. RPi may be on UTC
 
-infile <- "octomac_annex_wifi_2016-04-28_10-53-56"
+infile <- "octomac_on_annex_wifi_2016-04-28_13-22-59"
 ````
 
 # Introduction
@@ -60,7 +60,7 @@ Purpose:
 
 Data:
 
-* .csv file produced by pinger.py (`r paste0(infile,".csv")`)
+* .csv files produced by pinger.py
 
 Code:
 
@@ -69,32 +69,40 @@ Code:
 ```{r, echo=FALSE}
 ### Load data & do processing ---------------------------------
 
+# load just the one file
 pingerDT <- fread(paste0(dpath,infile,".csv"))
 
+pingerDT$datetime_r <- as.POSIXct(pingerDT$timestamp)
+
+# remove old datetime
+pingerDT[,timestamp := NULL] # very quick
 ```
 
 # Basic responses
 Throughout the following NA usually means ping failed to return.
 
+The file has `r length(pingerDT$datetime_r)` records starting at `r min(pingerDT$datetime_r)` and finishing at `r max(pingerDT$datetime_r)`.
+
 How many rows (cases) & variables and how many records for each host?
 
 ````{r, echo=FALSE}
 dim(pingerDT)
-### Table of responses to date -----
-responses <- table(pingerDT$host, useNA = "always")
 
-responses
+````
 
-print("Converting timestamp to r datetime")
-pingerDT$datetime_r <- as.POSIXct(pingerDT$timestamp)
+Did we get any errors?
+````{r, echo=FALSE}
+kable(
+  table(pingerDT$error, pingerDT$host, useNA = "always")
+)
+````
 
-# remove old datetime
-pingerDT[,timestamp := NULL] # very quick
+Summary of variables (after converting datetime to R datetime (POSIX))
+````{r, echo=FALSE}
 
 summary(pingerDT)
 ````
 
-The file has `r length(pingerDT$datetime_r)` records starting at `r min(pingerDT$datetime_r)` and finishing at `r max(pingerDT$datetime_r)`.
 
 # Results by host
 Distribution of mean ping response times:
