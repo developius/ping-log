@@ -42,7 +42,7 @@ started = time.time()
 
 with open(ofile, "a") as theFile:
 	# print header
-	theFile.write("timestamp,host,milliseconds" + "\n")
+	theFile.write("timestamp,host,milliseconds,error" + "\n")
 theFile.close()
 
 while True:
@@ -52,9 +52,10 @@ while True:
 				p = subprocess.Popen(['ping','-c','1', url[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				out, err = p.communicate()
 				try:
-					out = out.split("\n")[1].split("time=")[-1].split(" ")[0]	
-					# set a nice datetime for R etc																																																																					
-					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + out
+					ms = out.split("\n")[1].split("time=")[-1].split(" ")[0]	
+					# set a nice datetime for R etc	
+					# allow for error column at the end																																																																				
+					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + ms + "," + "OK"
 				except IndexError:
 					# Error in indexing the split list
 					# Probably no internet connection at all so ping has failed
@@ -62,11 +63,12 @@ while True:
 					# need to remove \n from the end of the error string
 					error = ("%s" % err)
 					# set a nice datetime for R etc
-					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + error.split("\n")[0]
+					# leave ms empty & add error
+					out = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S") + "," + url[0] + "," + "," + error.split("\n")[0]
 				theFile.write(out + "\n")
 
 				out = out.split(",")
-				print("[" + out[0] + "] " + out[1] + ":\t" + out[2])
+				print("[" + out[0] + "] " + out[1] + ": " + out[2] + ": " + out[3])
 		theFile.close()
 		time.sleep(gap)
 
