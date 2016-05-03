@@ -3,12 +3,12 @@ title: "Analysis of pinger results"
 author: "Ben Anderson (@dataknut)"
 date: "28 April 2016"
 output:
+  html_document:
+    toc: yes
+    toc_depth: '2'
   pdf_document:
     toc: yes
     toc_depth: '2'
-  html_document:
-    toc: yes
-    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -78,13 +78,17 @@ Warning:
 
 # Load any pinger results files
 
-```{r, echo=FALSE}
-### Load data & do processing ---------------------------------
+You may see file read warnings below. They are usually caused by:
+ 
+ * incorrect handling of ping response errors putting characters into the milliseconds field
+ * unexpected file ending - e.g. when the pinger process quit without closing the file
+ 
+```{r processRawData, echo=FALSE}
 
 # load just the one file
 # pingerDT <- fread(paste0(dpath,infile,".csv"))
 
-# Get file list and process ----
+# Get file list and process
 setwd(dpath) # the glob function seems to fail if we give it the full path...
 filelist <- list.files(pattern = glob2rx(paste0("*.csv",
                                                 sep = ""
@@ -102,19 +106,16 @@ filesDT$file <- sapply(strsplit(filesDT$filelist, "[.]"), "[[", 1) # why does R 
 # now get the unique file sources
 uniqueSources <- unique(filesDT$filelist)
 
-# initiate processed list
-
-processed <- ""
-
 for(f in uniqueSources) {
   print(
     paste0("# Loading: ", f)
   )
   
   # Get the file
-  # this may throw errors and warnings which we really should handle nicely
+  # this may throw errors and warnings which we really should handle nicely but most of
+  # them relate to poor ping error response parsing so text appears in the milliseconds column
   temp_DT <- fread(f)
-  processed <- c(processed, f) # add ID to the list of those processed
+  
   names <- strsplit(f, "[.]" )[[1]] # split by . 
   source <- names[1] # first word in list = filename without suffix
   #print(
@@ -125,7 +126,33 @@ for(f in uniqueSources) {
   #print("# -> Converting original date to R POSIXct")
   temp_DT$r_datetime <- as.POSIXct(temp_DT$timestamp)
 
-  # write out the table to the results folder
+  # create uncaught error status ----
+  # really nead to fix this in the pinger code
+  # if word 'From' found in milliseconds column
+  temp_DT$error <- ifelse(temp_DT$milliseconds == "From",
+                             "ping error: `From'",
+                             temp_DT$error)
+  # if record = OK but no milliseconds
+  temp_DT$error <- ifelse(temp_DT$milliseconds == "" & temp_DT$error == "OK",
+                             "ping error: no value returned",
+                             temp_DT$error)
+  # if record = OK & milliseconds is exactly 36, ping error (usually router not visible as away from home)
+  temp_DT$error <- ifelse(temp_DT$milliseconds == "36" & temp_DT$error == "OK",
+                             "ping error: '36'",
+                             temp_DT$error)
+
+  # now ensure milliseconds is numeric (empty values will be set to NA)
+  temp_DT$milliseconds_r <- as.numeric(temp_DT$milliseconds)
+
+  # print("Checking for uncaught ping errors")
+  # print(
+  #     table(temp_DT$milliseconds[is.na(temp_DT$milliseconds_r)],
+  #           temp_DT$error[is.na(temp_DT$milliseconds_r)])
+  # )
+  # over-write the original milliseconds - better be sure we've caught all the errors!
+  temp_DT$milliseconds <- temp_DT$milliseconds_r
+  
+  # write out the table to the results folder ----
   # this is a bit of a kludge - but it allows the files to then be read in to one datatable later
   ofile <- paste0("temp/pinger_", source, "_DT.csv")
   #print(
@@ -139,10 +166,7 @@ for(f in uniqueSources) {
   
   # create DT
   dtname <- paste0(source, "_DT")
-  
   assign(dtname, temp_DT)
-  
-
 }
 
 # remove temporary DT
@@ -154,9 +178,9 @@ Throughout the following NA usually means ping failed to return.
 
 Files we processed:
 
-````{r, echo=FALSE}
+````{r loadProcessedData, echo=FALSE}
 setwd(paste0(dpath,"temp/")) # the glob function seems to fail if we give it the full path...
-# Get file list and load ----
+# Get file list and load
 filelist <- list.files(pattern = glob2rx(paste0("*_DT.csv", 
                                                 sep = ""
                                                 ), 
@@ -166,6 +190,8 @@ filelist <- list.files(pattern = glob2rx(paste0("*_DT.csv",
                        )
 
 print(filelist)
+
+# now read them all in to one data table
 allPinger_DT = as.data.table( #load as a data.table
   do.call(
     rbind, lapply(filelist, function(x) fread(x) # data.table fread function much quicker but prone to breaking if data formatting problems
@@ -175,20 +201,6 @@ allPinger_DT = as.data.table( #load as a data.table
 
 #print("# -> Converting original date to R POSIXct")
 allPinger_DT$r_datetime <- as.POSIXct(allPinger_DT$timestamp)
-
-#create uncaught error status
-# really nead to fix this in the pinger code
-# if record = OK but no milliseconds then unknown ping error
-allPinger_DT$error <- ifelse(allPinger_DT$milliseconds == "" & allPinger_DT$error == "OK",
-                             "unkown ping error",
-                             allPinger_DT$error)
-# if record = OK & milliseconds is exactly 36, ping error (usually router not visible as away from home)
-allPinger_DT$error <- ifelse(allPinger_DT$milliseconds == "36" & allPinger_DT$error == "OK",
-                             "36 ping error",
-                             allPinger_DT$error)
-
-#now ensure milliseconds is numeric (empty values will be set to NA)
-allPinger_DT$milliseconds <- as.numeric(allPinger_DT$milliseconds)
 
 #print("# -> adding date & hour variable")
 allPinger_DT$r_date <- as.POSIXct.Date(allPinger_DT$r_datetime)
@@ -206,7 +218,7 @@ allPinger_DT$label <- ifelse(grepl("msmbp",allPinger_DT$source),"ms_mbp",allPing
 
 How many rows (cases) & variables across all files?
 
-````{r, echo=FALSE}
+````{r countsByHost, echo=FALSE}
 dim(allPinger_DT)
 kable(
   table(allPinger_DT$label, allPinger_DT$host, useNA = "always")
@@ -214,23 +226,22 @@ kable(
 ````
 
 Did we get any errors?
-````{r, echo=FALSE}
+
+````{r errorsByHost, echo=FALSE}
 kable(
-  table(allPinger_DT$label, allPinger_DT$error, useNA = "always")
+  table(allPinger_DT$error, allPinger_DT$label, useNA = "always")
 )
 ````
 
 What time of day do we tend to get errors?
-````{r, echo=FALSE}
-kable(
-  table(allPinger_DT$r_hour, allPinger_DT$error, useNA = "always")
-)
+
+````{r errorsByDateTime, echo=FALSE}
 
 # make a pretty graph of all errors by hour
 # this will stack the counts
 ggplot(allPinger_DT[allPinger_DT$error!="OK"], aes(x = r_hour)) + 
-  geom_bar(aes(fill = error, col = "Count")) +
-  theme(legend.position = "right") +
+  geom_bar(aes(fill = error), position = "stack") +
+  theme(legend.position = "bottom") +
   theme(legend.title = element_blank()) +
   labs(x = "Hour",
        y = "Count"
@@ -245,15 +256,16 @@ ggsave(paste0(dpath, "all_errors_by_r_hour.png"),
 # Results by host
 
 Ping data, key stats for `r min(allPinger_DT$r_datetime)` to `r max(allPinger_DT$r_datetime)` for all data sources. Beware datetime issues on the Raspberry Pi.
-````{r, echo=FALSE}
+
+````{r millisecondsByDateTime, echo=FALSE}
 # make a pretty graph of all data by time
   
 ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) + 
   geom_point(aes(color = host, col = "Response time (ms)")) +
   theme(legend.position = "bottom") +
   theme(legend.title = element_blank()) +
-  labs(x = "Time/date",
-       y = "ms"
+  labs(x = "Date & time",
+       y = "Milliseconds"
   ) +
   facet_grid(label ~ .) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
@@ -263,7 +275,7 @@ ggsave(paste0(dpath, "all_data_by_r_datetime.png"),
 ````
 
 By hour:
-````{r, echo=FALSE}
+```{r errorsByHour, echo=FALSE, message=FALSE, warning=FALSE}
 # make a pretty graph of all data by hour
   
 ggplot(allPinger_DT, aes(x = r_hour, y = milliseconds)) + 
