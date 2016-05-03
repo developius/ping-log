@@ -2,7 +2,13 @@
 title: "Analysis of pinger results"
 author: "Ben Anderson (@dataknut)"
 date: "28 April 2016"
-output: html_document
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -104,10 +110,11 @@ for(f in uniqueSources) {
   print(
     paste0("# Loading: ", f)
   )
-  processed <- c(processed, f) # add ID to the list of those processed
   
-  # Get the list of files for just this substation
+  # Get the file
+  # this may throw errors and warnings which we really should handle nicely
   temp_DT <- fread(f)
+  processed <- c(processed, f) # add ID to the list of those processed
   names <- strsplit(f, "[.]" )[[1]] # split by . 
   source <- names[1] # first word in list = filename without suffix
   #print(
