@@ -47,24 +47,30 @@ library(knitr) # for kable
 # we may wish to load a number of them into different tables and then rbind
 # but watch for timeing errors - e.g. RPi may be on UTC
 
-infile <- "octomac_annex_wifi_2016-04-28_10-53-56"
+#infile <- "octomac_annex_wifi_2016-04-28_10-53-56"
 ````
 
 # Introduction
 Purpose:
 
 * To test connectivity to:
- * a home router and 
- * the wider internet 
+    + a home router and 
+    + the wider internet 
 * in order to attempt to work out where connectivity problems are occuring.
 
 Data:
 
-* .csv files produced by pinger.py
+* Any number of .csv files produced by pinger.py
 
 Code:
 
 * this code: https://github.com/dataknut/ping-log/blob/master/pinger_process_results.Rmd
+
+Warning:
+
+* the code lines up the data files according to the datetime in them. If this is wrong (e.g. wrong timezone set or using UTC) then there will be mis-alignment.
+
+# Load any pinger results files
 
 ```{r, echo=FALSE}
 ### Load data & do processing ---------------------------------
@@ -115,12 +121,12 @@ for(f in uniqueSources) {
   # write out the table to the results folder
   # this is a bit of a kludge - but it allows the files to then be read in to one datatable later
   ofile <- paste0("temp/pinger_", source, "_DT.csv")
-  print(
-    head(temp_DT)
-  )
-  print(
-    summary(temp_DT)
-  )
+  #print(
+  #  head(temp_DT)
+  #)
+  #print(
+  #  summary(temp_DT)
+  #)
   
   write.csv(temp_DT, ofile, row.names = FALSE)
   
@@ -162,8 +168,33 @@ allPinger_DT = as.data.table( #load as a data.table
 
 #print("# -> Converting original date to R POSIXct")
 allPinger_DT$r_datetime <- as.POSIXct(allPinger_DT$timestamp)
+
+#create uncaught error status
+# really nead to fix this in the pinger code
+# if record = OK but no milliseconds then unknown ping error
+allPinger_DT$error <- ifelse(allPinger_DT$milliseconds == "" & allPinger_DT$error == "OK",
+                             "unkown ping error",
+                             allPinger_DT$error)
+# if record = OK & milliseconds is exactly 36, ping error (usually router not visible as away from home)
+allPinger_DT$error <- ifelse(allPinger_DT$milliseconds == "36" & allPinger_DT$error == "OK",
+                             "36 ping error",
+                             allPinger_DT$error)
+
+#now ensure milliseconds is numeric (empty values will be set to NA)
 allPinger_DT$milliseconds <- as.numeric(allPinger_DT$milliseconds)
 
+#print("# -> adding date & hour variable")
+allPinger_DT$r_date <- as.POSIXct.Date(allPinger_DT$r_datetime)
+allPinger_DT$r_hour <- as.POSIXlt(allPinger_DT$r_datetime)$hour
+
+# fix the source labels to make this easier to read and to aggregate the same device
+# this assumes you know where they are and so what might cause any step changes in performance
+# this is very hard to automate unless there is a naming convention for input files
+allPinger_DT$label <- ifelse(grepl("pimine",allPinger_DT$source),"pimine_bthub",allPinger_DT$source)
+allPinger_DT$label <- ifelse(grepl("hamishpi",allPinger_DT$source),"hamishpi",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("octomac",allPinger_DT$source),"octomac",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("ms_mbp",allPinger_DT$source),"ms_mbp",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("msmbp",allPinger_DT$source),"ms_mbp",allPinger_DT$label)
 ````
 
 How many rows (cases) & variables across all files?
@@ -171,41 +202,44 @@ How many rows (cases) & variables across all files?
 ````{r, echo=FALSE}
 dim(allPinger_DT)
 kable(
-  table(allPinger_DT$source, allPinger_DT$host, useNA = "always")
+  table(allPinger_DT$label, allPinger_DT$host, useNA = "always")
 )
 ````
 
 Did we get any errors?
 ````{r, echo=FALSE}
 kable(
-  table(allPinger_DT$source, allPinger_DT$error, useNA = "always")
+  table(allPinger_DT$label, allPinger_DT$error, useNA = "always")
 )
+````
+
+What time of day do we tend to get errors?
+````{r, echo=FALSE}
+kable(
+  table(allPinger_DT$r_hour, allPinger_DT$error, useNA = "always")
+)
+
+# make a pretty graph of all errors by hour
+# this will stack the counts
+ggplot(allPinger_DT[allPinger_DT$error!="OK"], aes(x = r_hour)) + 
+  geom_bar(aes(fill = error, col = "Count")) +
+  theme(legend.position = "right") +
+  theme(legend.title = element_blank()) +
+  labs(x = "Hour",
+       y = "Count"
+  ) +
+  facet_grid(label ~ .) +
+  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+
+ggsave(paste0(dpath, "all_errors_by_r_hour.png"), 
+       width = 10, height = 10)
 ````
 
 # Results by host
-Distribution of mean ping response times:
-````{r, echo=FALSE}
-kable(
-  allPinger_DT[,
-         .(
-           N = length(r_datetime),
-           Mean = mean(milliseconds, na.rm = TRUE), # remove any NAs (ping failed to respond)
-           sd = sd(milliseconds, na.rm = TRUE)
-           ),
-         by = c("source", "host")
-         ]
-)
-````
 
-Ping data, key stats for `r min(allPinger_DT$r_datetime)` to `r max(allPinger_DT$r_datetime)` for all data sources
+Ping data, key stats for `r min(allPinger_DT$r_datetime)` to `r max(allPinger_DT$r_datetime)` for all data sources. Beware datetime issues on the Raspberry Pi.
 ````{r, echo=FALSE}
-# make a pretty graph
-
-# fix the source labels to make this easier to read
-# this is very hard to automate unless there is a naming convention for input files
-allPinger_DT$label <- ifelse(grepl("on_annex_wifi",allPinger_DT$source),"annex_wifi",allPinger_DT$source)
-allPinger_DT$label <- ifelse(grepl("on_ethernet",allPinger_DT$source),"on_ethernet",allPinger_DT$label)
-allPinger_DT$label <- ifelse(grepl("on_bthub",allPinger_DT$source),"on_bthub",allPinger_DT$label)
+# make a pretty graph of all data by time
   
 ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) + 
   geom_point(aes(color = host, col = "Response time (ms)")) +
@@ -214,9 +248,28 @@ ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) +
   labs(x = "Time/date",
        y = "ms"
   ) +
-  facet_grid(label ~ .)
+  facet_grid(label ~ .) +
+  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 
-ggsave(paste0(dpath, "all_data.png"), 
+ggsave(paste0(dpath, "all_data_by_r_datetime.png"), 
+       width = 10, height = 10)
+````
+
+By hour:
+````{r, echo=FALSE}
+# make a pretty graph of all data by hour
+  
+ggplot(allPinger_DT, aes(x = r_hour, y = milliseconds)) + 
+  geom_point(aes(color = host, col = "Response time (ms)")) +
+  theme(legend.position = "bottom") +
+  theme(legend.title = element_blank()) +
+  labs(x = "Hour of the day",
+       y = "ms"
+  ) +
+  facet_grid(label ~ .) +
+  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+
+ggsave(paste0(dpath, "all_data_by_r_hour.png"), 
        width = 10, height = 10)
 ````
 
