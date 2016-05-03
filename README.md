@@ -2,7 +2,11 @@
 A python-based pinger for collecting network response time data plus R markdown code for analysing the data & preducing a report.
 
 ## The problem
-We often see internet response time problems at home and these usually lead to debates about what exactly is broken. It has to be said that our internet contect is 'challenging'. We live in rural East Anglia (UK), our nearest PSTN Exchange is at least a couple of miles away and we are the penultimate phone number on the line. We're pretty sure the line is split, possibly several times, upstream of our property. Internally we live in a rambling barn conversion and the master phone socket is at one end - well away from where we want the wifi. We also have [celotex in the roof and foil-backed plasterboard](http://www.exbtengineers.com/wifi-problems/) in (some of) the walls. We've tried wifi replicators, power line and running the ADSL down a phone extension to the middle of the house. None have proved particularly successful. But we decided we needed some data to inform the next steps. In particular, was our broadband service rubbish or was our internal distribution system the culprit? Or was it a bit of both at different times?
+We often see internet response time problems at home and these usually lead to debates about what exactly is broken. 
+
+It has to be said that our internet context is 'challenging'. We live in rural East Anglia (UK), our nearest PSTN Exchange is at least a couple of miles away and we are the penultimate phone number on the line. We're pretty sure the line is split, possibly several times, upstream of our property. Internally we live in a rambling barn conversion and the master phone socket is at one end - well away from where we want the wifi. We also have [celotex in the roof and foil-backed plasterboard](http://www.exbtengineers.com/wifi-problems/) in (some of) the walls. 
+
+We've tried wifi replicators, power line and running the ADSL down a phone extension to the middle of the house. None have proved particularly successful. But we decided we needed some data to inform the next steps. In particular, was our broadband service rubbish or was our internal distribution system the culprit? Or was it a bit of both at different times?
 
 Did I mention that we are a family of six (2 + 4) with seemingly countless IP devices? It might be relevant... one hunch was that the default settings and usage habits of teenagers-with-iPads might be a contributing factor.
 
