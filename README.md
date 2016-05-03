@@ -42,7 +42,7 @@ Having collated the data we run the R markdown code using RStudio to generate a 
 
 ## Code warnings
 It isn't big and it isn't clever:
- * the pinger deals dis-gracefully with ICMP time outs and other ping errors. Some of these are currently caught by the R code but some aren't. For example you well get an 'OK' even if the ping can't see your internal router and you will get an empty value in the milliseconds field. We're working on it.
+ * the pinger deals dis-gracefully with ICMP time outs and other ping errors. Some of these are currently caught by the R code but some aren't. For example you well get an 'OK' and an empty value in the milliseconds field even if the ping can't see your internal router - e.g. if you run the vanilla pinger outside your home network. We're working on it.
  * the R script records quite a few data read warnings that we have not really investigated
  * inevitably [#YMMV](https://en.wiktionary.org/wiki/YMMV)
 
