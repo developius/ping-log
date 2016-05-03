@@ -38,7 +38,9 @@ Understood ping errors will be copied verbatim to the error column of the result
 
 We use sftp to collect the data every few hours - or every few minutes if we are testing different configurations. At some point we will automate this process. 
 
-Having collated the data we run the R markdown code using RStudio to generate a report and after all that we then argue about what the result show and what to do about it.
+Having collated the data we run the R markdown code using RStudio to generate a report. 
+
+After all that we argue about what the result show and what to do about it.
 
 ## Code warnings
 It isn't big and it isn't clever:
