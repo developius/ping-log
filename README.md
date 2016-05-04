@@ -19,10 +19,10 @@ Since 2/6 of the family are nerdy data/stats/coding types we wrote a script to u
 Command line parameters:
  
 * file to save results to (.csv format in 'results' folder in current directory with start date/time appended)
-* n minutes to run for (hint: 1440 = 1 day :-)
-* n seconds between pings
+* m minutes to run for (hint: 1440 = 1 day :-)
+* s seconds between pings
 
-The pinger sets off a ping every n seconds and records the result. When ping returns something meaningfull the millisecond response time is recorded against the date/time the ping started and the error colum will have "OK". An example:
+The pinger sets off a ping every s seconds and records the result. When ping returns something meaningfull the millisecond response time is recorded against the date/time the ping started and the error colum will have "OK". An example:
 
     timestamp,host,milliseconds, error
     2016-04-28 10:53:56,www.google.co.uk,83.548, OK
@@ -30,17 +30,19 @@ The pinger sets off a ping every n seconds and records the result. When ping ret
     2016-04-28 10:54:07,www.google.co.uk,71.019, OK
     2016-04-28 10:54:07,router,9.875, OK
 
-Understood ping errors will be copied verbatim to the error column of the results. Mostly. Well, sometimes. See below.
+Understood ping errors will be copied verbatim to the error column of the results. Mostly. Well... sometimes. See below.
 
 ## Our experiments
 
- We run the pinger on as many devices as possible on our home network and collate the data. Mostly this means running ssh to various OS X boxes and some Raspberry Pis. One Pi is permanently connected to the ADSL modem/base router while the rest 'float' across whichever internal networking method we are trying this week although we try to keep a few constant as a baseline in known fixed locations. We usually run the pinger for up to 24 hours collecting ping data every 10 seconds or so. We've been using [tmux](https://tmux.github.io/) to launch the script remotely and leave it running even if the ssh network connection dies. Which is symptomatic of the problems we face.
+We run the pinger on as many devices as possible on our home network and collate the data. Mostly this means running ssh to various OS X boxes and some Raspberry Pis in order to launch the pinger. One Pi is permanently connected to the ADSL modem/base router while the rest 'float' across whichever internal networking method we are trying this week although we do keep a few in known fixed locations as a baseline.
+
+We usually run the pinger for up to 24 hours collecting ping data every 10-20 seconds. We've been using [tmux](https://tmux.github.io/) to launch the script remotely and leave it running even if the ssh network connection dies. This is symptomatic of the problems we face.
 
 We use sftp to collect the data every few hours - or every few minutes if we are testing different configurations. At some point we will automate this process. 
 
-Having collated the data we run the R markdown code using RStudio to generate a report. 
+Having collated the data we run the R markdown code using RStudio to generate a report. The code will process any .csv file it finds in the 'results' folder.
 
-After all that we argue about what the result show and what to do about it.
+After all that we argue about what the results show and what to do about it. Take a look at the pdf files to see some examples of the auto-generated reports.
 
 ## Code warnings
 It isn't big and it isn't clever:

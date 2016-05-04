@@ -1,28 +1,30 @@
 ---
 title: "Analysis of pinger results"
 author: "Ben Anderson (@dataknut)"
-date: "28 April 2016"
 output:
-  html_document:
+  pdf_document:
     toc: yes
     toc_depth: '2'
-  pdf_document:
+  html_document:
     toc: yes
     toc_depth: '2'
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# set default echo to FALSE (code not in output)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-**About this document**
+# About this document
+
+Last run: `r Sys.time()`
 
 This document was created using [knitr](https://cran.r-project.org/package=knitr) in [RStudio](http://www.rstudio.com). Knitr allows the embedding of R code within markdown text documents allowing them to be updated and re-run. Things to note:
 
 * Knitr will display warnings (but not errors) from R. The warnings may or may not be significant.
 * Knitr is very clever but it does not always support pretty tables.
 
-This code processes and anlayses the results of running https://github.com/dataknut/ping-log/blob/master/pinger.py which is a .csv file with the form:
+This code processes and anlayses the results of running https://github.com/dataknut/ping-log/blob/master/pinger.py. The results will be a .csv file with the form:
 
     timestamp,host,milliseconds, error
     2016-04-28 10:53:56,www.google.co.uk,83.548, OK
@@ -30,7 +32,7 @@ This code processes and anlayses the results of running https://github.com/datak
     2016-04-28 10:54:07,www.google.co.uk,71.019, OK
     2016-04-28 10:54:07,router,9.875, OK
 
-````{r, echo = FALSE, warning = FALSE}
+````{r, warning = FALSE}
 # Housekeeping ----
 # clear out all old objects etc to avoid confusion
 rm(list = ls()) 
@@ -83,7 +85,10 @@ You may see file read warnings below. They are usually caused by:
  * incorrect handling of ping response errors putting characters into the milliseconds field
  * unexpected file ending - e.g. when the pinger process quit without closing the file
  
-```{r processRawData, echo=FALSE}
+All of these are re-coded as different types of 'error' before any data analysis.
+ 
+```{r processRawData}
+# may print warnings
 
 # load just the one file
 # pingerDT <- fread(paste0(dpath,infile,".csv"))
@@ -140,6 +145,10 @@ for(f in uniqueSources) {
   temp_DT$error <- ifelse(temp_DT$milliseconds == "36" & temp_DT$error == "OK",
                              "ping error: '36'",
                              temp_DT$error)
+  # if record = OK & milliseconds is exactly 92, ping error (usually router not visible as away from home)
+  temp_DT$error <- ifelse(temp_DT$milliseconds == "92" & temp_DT$error == "OK",
+                             "ping error: '92'",
+                             temp_DT$error)
 
   # now ensure milliseconds is numeric (empty values will be set to NA)
   temp_DT$milliseconds_r <- as.numeric(temp_DT$milliseconds)
@@ -178,7 +187,7 @@ Throughout the following NA usually means ping failed to return.
 
 Files we processed:
 
-````{r loadProcessedData, echo=FALSE}
+````{r loadProcessedData}
 setwd(paste0(dpath,"temp/")) # the glob function seems to fail if we give it the full path...
 # Get file list and load
 filelist <- list.files(pattern = glob2rx(paste0("*_DT.csv", 
@@ -225,9 +234,26 @@ kable(
 )
 ````
 
+Distribution of milliseconds?
+
+````{r millisecondsByLabel}
+kable(
+  allPinger_DT[!is.na(milliseconds),
+               . (
+                 Mean = mean(milliseconds),
+                 N = length(milliseconds),
+                 s.d = sd(milliseconds)
+               ),
+               by = label
+                 ]
+)
+````
+
+# Ping error results
+
 Did we get any errors?
 
-````{r errorsByHost, echo=FALSE}
+````{r errorsByHost}
 kable(
   table(allPinger_DT$error, allPinger_DT$label, useNA = "always")
 )
@@ -235,7 +261,7 @@ kable(
 
 What time of day do we tend to get errors?
 
-````{r errorsByDateTime, echo=FALSE}
+````{r errorsByDateTime, warning = FALSE}
 
 # make a pretty graph of all errors by hour
 # this will stack the counts
@@ -253,11 +279,13 @@ ggsave(paste0(dpath, "all_errors_by_r_hour.png"),
        width = 10, height = 10)
 ````
 
-# Results by host
+So, the bthub pinger seems to only see problems 15:00 - 16:00. As this Pi is 1 hour behind BST this equates to 16:00 - 17:00. HamishPi which sits on an internal ethernet segment fed by power line clearly has problems at most times of day.
+
+# Ping response time results
 
 Ping data, key stats for `r min(allPinger_DT$r_datetime)` to `r max(allPinger_DT$r_datetime)` for all data sources. Beware datetime issues on the Raspberry Pi.
 
-````{r millisecondsByDateTime, echo=FALSE}
+````{r millisecondsByDateTime, warning = FALSE}
 # make a pretty graph of all data by time
   
 ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) + 
@@ -274,8 +302,14 @@ ggsave(paste0(dpath, "all_data_by_r_datetime.png"),
        width = 10, height = 10)
 ````
 
-By hour:
-```{r errorsByHour, echo=FALSE, message=FALSE, warning=FALSE}
+Fairly conclusively:
+
+* there is rarely a problem with our broadband service - pimine on the bthub generally shows low response times
+* most of the problems are internal (no s**t Sherlock)
+
+If we now consider the results by hour of the day:
+
+```{r millisecondsByHour, warning = FALSE}
 # make a pretty graph of all data by hour
   
 ggplot(allPinger_DT, aes(x = r_hour, y = milliseconds)) + 
@@ -292,8 +326,15 @@ ggsave(paste0(dpath, "all_data_by_r_hour.png"),
        width = 10, height = 10)
 ````
 
+Equally conclusively:
+
+* the period 16:00 - 21:00 is, in general, the problem period. 
+ 
+It is the _only_ problem period for the bthub (noting that for some reason, pimine_on_bthub's clock is 1 hour behind BST). Strangely enough this is also the period when the iPads-belonging-to-teenagers have internet access.
 
 ---------------------------------
 Last run: `r Sys.time()`
+
+Data tables in memory: `r tables()`
 
 Analysis completed in: `r Sys.time() - starttime` seconds using [knitr](https://cran.r-project.org/package=knitr) & [RStudio](http://www.rstudio.com)
