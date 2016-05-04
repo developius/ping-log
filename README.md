@@ -42,7 +42,7 @@ We use sftp to collect the data every few hours - or every few minutes if we are
 
 Having collated the data we run the R markdown code using RStudio to generate a report. The code will process any .csv file it finds in the 'results' folder.
 
-After all that we argue about what the results show and what to do about it. Take a look at the pdf files to see some examples of the auto-generated reports.
+After all that we argue about what the results show and what to do about it.
 
 ## Code warnings
 It isn't big and it isn't clever:
