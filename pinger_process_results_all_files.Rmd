@@ -3,8 +3,11 @@ title: "Analysis of pinger results"
 author: "Ben Anderson (@dataknut)"
 output:
   html_document:
+    fig_caption: yes
+    number_sections: yes
+    theme: journal
     toc: yes
-    toc_depth: '2'
+    toc_depth: 2
   pdf_document:
     toc: yes
     toc_depth: '2'
@@ -13,6 +16,8 @@ output:
 ```{r setup, include=FALSE}
 # set default echo to FALSE (code not in output)
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig_caption = TRUE)
+knitr::opts_chunk$set(tidy = TRUE)
 ```
 
 # About this document
@@ -24,13 +29,15 @@ This document was created using [knitr](https://cran.r-project.org/package=knitr
 * Knitr will display warnings (but not errors) from R. The warnings may or may not be significant.
 * Knitr is very clever but it does not always support pretty tables.
 
-This code processes and anlayses the results of running https://github.com/dataknut/ping-log/blob/master/pinger.py. The results will be a .csv file with the form:
+This code processes and anlayses the results of running https://github.com/dataknut/ping-log/blob/master/pinger.py. Pinger.py outputs a .csv file of the form:
 
     timestamp,host,milliseconds, error
     2016-04-28 10:53:56,www.google.co.uk,83.548, OK
     2016-04-28 10:53:57,router,121.820, OK
     2016-04-28 10:54:07,www.google.co.uk,71.019, OK
     2016-04-28 10:54:07,router,9.875, OK
+
+Note that the R code will only process gzipped .csv files.
 
 ````{r, warning = FALSE}
 # Housekeeping ----
@@ -42,7 +49,10 @@ rm(list = ls())
 starttime <- Sys.time()
 
 # set working directory
-dpath <- "~/github/ping-log/results/" # latest version of data with missing properly coded
+dpath <- "~/Dropbox/pinger/data/" # latest version of data with missing properly coded
+rpath <- "~/Documents/pinger/results/" # where to put out output
+tpath <- "~/Documents/pinger/tmp/" # where to put out output
+gpath <- "~/Documents/pinger/results/" # where to put graphs
 
 # load required packages ----
 library(data.table) # fast data manipulation
@@ -94,8 +104,11 @@ All of these are re-coded as different types of 'error' before any data analysis
 # pingerDT <- fread(paste0(dpath,infile,".csv"))
 
 # Get file list and process
+# This will only catch & load gzipped files (from now on)
+# gzip them before downloading from the pinger - it's quicker & needs less storage space
+# They load quicker too
 setwd(dpath) # the glob function seems to fail if we give it the full path...
-filelist <- list.files(pattern = glob2rx(paste0("*.csv",
+filelist <- list.files(pattern = glob2rx(paste0("*.csv.gz",
                                                 sep = ""
                                                 ),
                                          trim.head = FALSE, trim.tail = TRUE
@@ -104,7 +117,7 @@ filelist <- list.files(pattern = glob2rx(paste0("*.csv",
 
 filesDT <- as.data.table(filelist) # makes for easy manipulation
 
-# for each file in filelist we need to split on . and create the file source
+# for each file in filelist we need to split on . and create the file source from the first word (before the .csv part)
 # NB this assumes the filenames are meaningful!
 filesDT$file <- sapply(strsplit(filesDT$filelist, "[.]"), "[[", 1) # why does R have such weird syntax for this?
 
@@ -116,10 +129,11 @@ for(f in uniqueSources) {
     paste0("# Loading: ", f)
   )
   
-  # Get the file
+  # Get the file using fread's ability to read from gzipped files
   # this may throw errors and warnings which we really should handle nicely but most of
   # them relate to poor ping error response parsing so text appears in the milliseconds column
-  temp_DT <- fread(f)
+  loadcmd <- paste0("gunzip -c ", f)
+  temp_DT <- fread(loadcmd)
   
   names <- strsplit(f, "[.]" )[[1]] # split by . 
   source <- names[1] # first word in list = filename without suffix
@@ -127,14 +141,11 @@ for(f in uniqueSources) {
   #  paste0("# -> Setting source to: ", source)
   #)
   temp_DT$source <- source # set file name (without the .csv)
-  
-  #print("# -> Converting original date to R POSIXct")
-  temp_DT$r_datetime <- as.POSIXct(temp_DT$timestamp)
 
   # create uncaught error status ----
   # really nead to fix this in the pinger code
   # if word 'From' found in milliseconds column
-  temp_DT$error <- ifelse(temp_DT$milliseconds == "From",
+  temp_DT$error <- ifelse(grepl("From",temp_DT$milliseconds),
                              "ping error: `From'",
                              temp_DT$error)
   # if record = OK but no milliseconds
@@ -150,20 +161,28 @@ for(f in uniqueSources) {
                              "ping error: '92'",
                              temp_DT$error)
 
-  # now ensure milliseconds is numeric (empty values will be set to NA)
-  temp_DT$milliseconds_r <- as.numeric(temp_DT$milliseconds)
-
+  # convert milliseconds to numeric ----
+  # (empty values will be set to NA)
+  temp_DT[, milliseconds_numeric := as.numeric(milliseconds)]
+  
+  # force any remaining NA milliseconds without error flags to have error flags
+  temp_DT$error <- ifelse(is.na(temp_DT$milliseconds_numeric) &
+                            temp_DT$error == "OK",
+                             "ping error: unknown",
+                             temp_DT$error)
+  # update milliseconds & remove
+  temp_DT[, milliseconds := milliseconds_numeric]
+  temp_DT[, milliseconds_numeric := NULL]
+  
   # print("Checking for uncaught ping errors")
   # print(
   #     table(temp_DT$milliseconds[is.na(temp_DT$milliseconds_r)],
   #           temp_DT$error[is.na(temp_DT$milliseconds_r)])
   # )
-  # over-write the original milliseconds - better be sure we've caught all the errors!
-  temp_DT$milliseconds <- temp_DT$milliseconds_r
   
-  # write out the table to the results folder ----
+  # write out the table to the tmp folder ----
   # this is a bit of a kludge - but it allows the files to then be read in to one datatable later
-  ofile <- paste0("temp/pinger_", source, "_DT.csv")
+  ofile <- paste0(tpath, source, "_DT.csv")
   #print(
   #  head(temp_DT)
   #)
@@ -174,8 +193,8 @@ for(f in uniqueSources) {
   write.csv(temp_DT, ofile, row.names = FALSE)
   
   # create DT
-  dtname <- paste0(source, "_DT")
-  assign(dtname, temp_DT)
+  #dtname <- paste0(source, "_DT")
+  #assign(dtname, temp_DT)
 }
 
 # remove temporary DT
@@ -188,7 +207,7 @@ Throughout the following NA usually means ping failed to return.
 Files we processed:
 
 ````{r loadProcessedData}
-setwd(paste0(dpath,"temp/")) # the glob function seems to fail if we give it the full path...
+setwd(tpath) # the glob function seems to fail if we give it the full path...
 # Get file list and load
 filelist <- list.files(pattern = glob2rx(paste0("*_DT.csv", 
                                                 sep = ""
@@ -208,21 +227,32 @@ allPinger_DT = as.data.table( #load as a data.table
   )
 )
 
+# remove the temporary files
+system("rm *_DT.csv")
+
 #print("# -> Converting original date to R POSIXct")
 allPinger_DT$r_datetime <- as.POSIXct(allPinger_DT$timestamp)
+allPinger_DT[, timestamp := NULL] # remove 
 
 #print("# -> adding date & hour variable")
-allPinger_DT$r_date <- as.POSIXct.Date(allPinger_DT$r_datetime)
+allPinger_DT$r_date <- as.Date(allPinger_DT$r_datetime)
 allPinger_DT$r_hour <- as.POSIXlt(allPinger_DT$r_datetime)$hour
 
-# fix the source labels to make this easier to read and to aggregate the same device
+# fix the source labels to make this easier to read and to aggregate the same device ----
 # this assumes you know where they are and so what might cause any step changes in performance
 # this is very hard to automate unless there is a naming convention for input files
-allPinger_DT$label <- ifelse(grepl("pimine",allPinger_DT$source),"pimine_bthub",allPinger_DT$source)
-allPinger_DT$label <- ifelse(grepl("hamishpi",allPinger_DT$source),"hamishpi",allPinger_DT$label)
-allPinger_DT$label <- ifelse(grepl("octomac",allPinger_DT$source),"octomac",allPinger_DT$label)
-allPinger_DT$label <- ifelse(grepl("ms_mbp",allPinger_DT$source),"ms_mbp",allPinger_DT$label)
-allPinger_DT$label <- ifelse(grepl("msmbp",allPinger_DT$source),"ms_mbp",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("hubpi",allPinger_DT$source),
+                             "BThubNewHubpi",allPinger_DT$source) # copy in the source
+allPinger_DT$label <- ifelse(grepl("pimine",allPinger_DT$source),
+                             "BThubOldPimine",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("hamishpi",allPinger_DT$source),
+                             "hamishpi",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("octomac",allPinger_DT$source),
+                             "octomac",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("ms_mbp",allPinger_DT$source),
+                             "MrsA_mbp",allPinger_DT$label)
+allPinger_DT$label <- ifelse(grepl("msmbp",allPinger_DT$source),
+                             "MrsA_mbp",allPinger_DT$label)
 ````
 
 How many rows (cases) & variables across all files?
@@ -238,22 +268,35 @@ Distribution of milliseconds?
 
 ````{r millisecondsByLabel}
 kable(
-  allPinger_DT[!is.na(milliseconds),
+  allPinger_DT[,
                . (
-                 Mean = mean(milliseconds),
+                 Mean = round(mean(milliseconds, na.rm = TRUE),3),
                  N = length(milliseconds),
-                 s.d = sd(milliseconds)
+                 s.d = round(sd(milliseconds, na.rm = TRUE),3),
+                 Last_reading = max(r_datetime)
                ),
                by = label
                  ]
 )
 ````
 
+
 # Ping error results
 
 Did we get any errors?
 
 ````{r errorsByHost}
+kable(
+  table(allPinger_DT$error, allPinger_DT$label, useNA = "always")
+)
+````
+
+We should have either error codes or 'OK'. We can recode the NAs as unknown errors and retry.
+
+````{r errorsByHost2}
+allPinger_DT$error <- ifelse(is.na(allPinger_DT$error),
+                             "error: unknown",
+                             allPinger_DT$error)
 kable(
   table(allPinger_DT$error, allPinger_DT$label, useNA = "always")
 )
@@ -274,9 +317,6 @@ ggplot(allPinger_DT[allPinger_DT$error!="OK"], aes(x = r_hour)) +
   ) +
   facet_grid(label ~ .) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
-
-ggsave(paste0(dpath, "all_errors_by_r_hour.png"), 
-       width = 10, height = 10)
 ````
 
 So, the bthub pinger seems to only see problems 15:00 - 16:00. As this Pi is 1 hour behind BST this equates to 16:00 - 17:00. HamishPi which sits on an internal ethernet segment fed by power line clearly has problems at most times of day.
@@ -297,33 +337,71 @@ ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) +
   ) +
   facet_grid(label ~ .) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+````
 
-ggsave(paste0(dpath, "all_data_by_r_datetime.png"), 
-       width = 10, height = 10)
+Repeat that graph but for the last two days and only for the router Pi to be able to inspect the most recent results.
+
+````{r millisecondsByDateTimeRecent, warning = FALSE, fig.cap = "HubPi results for the last two days"}
+# repeat for yesterday & today
+today <- Sys.Date()
+yesterday <- today - 1
+
+ggplot(allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThub"], 
+       aes(x = r_datetime, y = milliseconds)) +
+  geom_point(aes(color = host, col = "Response time (ms)")) +
+  theme(legend.position = "bottom") +
+  theme(legend.title = element_blank()) +
+  labs(x = "Date & time",
+       y = "Milliseconds"
+  ) +
+  facet_grid(label ~ .) +
+  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+````
+
+And again but just for today.
+
+````{r millisecondsByDateTimeToday, warning = FALSE, fig.cap = "HubPi results for today"}
+# repeat for yesterday & today
+today <- Sys.Date()
+
+ggplot(allPinger_DT[r_date == today & label %like% "BThub"], 
+       aes(x = r_datetime, y = milliseconds)) +
+  geom_point(aes(color = host, col = "Response time (ms)")) +
+  theme(legend.position = "bottom") +
+  theme(legend.title = element_blank()) +
+  labs(x = "Date & time",
+       y = "Milliseconds"
+  ) +
+  facet_grid(label ~ .) +
+  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 ````
 
 Fairly conclusively:
 
-* there is rarely a problem with our broadband service - pimine on the bthub generally shows low response times
+* there is rarely a problem with our broadband service - the RPi on the bthub generally shows low response times
 * most of the problems are internal (no s**t Sherlock)
 
 If we now consider the results by hour of the day:
 
-```{r millisecondsByHour, warning = FALSE}
+```{r millisecondsByHour, warning = FALSE, fig.cap = "Mean milliseconds by hour"}
 # make a pretty graph of all data by hour
-  
-ggplot(allPinger_DT, aes(x = r_hour, y = milliseconds)) + 
+resultsByHour_DT <- allPinger_DT[,
+                                 .(
+                                  mean_ms = round(mean(milliseconds, na.rm = TRUE),3)
+                                 ),
+                                 by = .(label,host,r_hour)
+]  
+
+ggplot(resultsByHour_DT, 
+       aes(x = r_hour, y = mean_ms)) +
   geom_point(aes(color = host, col = "Response time (ms)")) +
   theme(legend.position = "bottom") +
   theme(legend.title = element_blank()) +
-  labs(x = "Hour of the day",
-       y = "ms"
+  labs(x = "Date & time",
+       y = "Mean milliseconds"
   ) +
   facet_grid(label ~ .) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
-
-ggsave(paste0(dpath, "all_data_by_r_hour.png"), 
-       width = 10, height = 10)
 ````
 
 Equally conclusively:
