@@ -341,7 +341,7 @@ ggplot(allPinger_DT, aes(x = r_datetime, y = milliseconds)) +
 
 Repeat that graph but for the last two days and only for the router Pi to be able to inspect the most recent results.
 
-````{r millisecondsByDateTimeRecent, warning = FALSE, fig.cap = "HubPi results for the last two days"}
+````{r millisecondsByDateTimeRecent, warning = FALSE, fig.cap = "HubPi results for the last two days (if we have any)"}
 # repeat for yesterday & today
 today <- Sys.Date()
 yesterday <- today - 1
@@ -358,25 +358,7 @@ ggplot(allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThu
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 ````
 
-And again but just for today (`r Sys.Date()`).
-
-````{r millisecondsByDateTimeToday, warning = FALSE, fig.cap = "HubPi results for today"}
-# repeat for yesterday & today
-today <- Sys.Date()
-
-ggplot(allPinger_DT[r_date == today & label %like% "BThub"], 
-       aes(x = r_datetime, y = milliseconds)) +
-  geom_point(aes(color = host, col = "Response time (ms)")) +
-  theme(legend.position = "bottom") +
-  theme(legend.title = element_blank()) +
-  labs(x = "Date & time",
-       y = "Milliseconds"
-  ) +
-  facet_grid(label ~ .) +
-  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
-````
-
-Guess when the squids got home?
+Guess what time the squids got home?
 
 Fairly conclusively:
 
