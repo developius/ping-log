@@ -358,7 +358,7 @@ ggplot(allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThu
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 ````
 
-And again but just for today.
+And again but just for today (`r Sys.Date()`).
 
 ````{r millisecondsByDateTimeToday, warning = FALSE, fig.cap = "HubPi results for today"}
 # repeat for yesterday & today
@@ -375,6 +375,8 @@ ggplot(allPinger_DT[r_date == today & label %like% "BThub"],
   facet_grid(label ~ .) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 ````
+
+Guess when the squids got home?
 
 Fairly conclusively:
 
