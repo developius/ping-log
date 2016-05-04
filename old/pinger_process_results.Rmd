@@ -1,0 +1,145 @@
+---
+title: "Analysis of pinger results"
+author: "Ben Anderson (@dataknut)"
+date: "28 April 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**About this document**
+
+This document was created using [knitr](https://cran.r-project.org/package=knitr) in [RStudio](http://www.rstudio.com). Knitr allows the embedding of R code within markdown text documents allowing them to be updated and re-run. Things to note:
+
+* Knitr will display warnings (but not errors) from R. The warnings may or may not be significant.
+* Knitr is very clever but it does not always support pretty tables.
+
+This code processes and anlayses the results of running https://github.com/dataknut/ping-log/blob/master/pinger.py which is a .csv file with the form:
+
+    timestamp,host,milliseconds
+    2016-04-28 10:53:56,www.google.co.uk,83.548
+    2016-04-28 10:53:57,router,121.820
+    2016-04-28 10:54:07,www.google.co.uk,71.019
+    2016-04-28 10:54:07,router,9.875
+
+````{r, echo = FALSE, warning = FALSE}
+# Housekeeping ----
+# clear out all old objects etc to avoid confusion
+rm(list = ls()) 
+
+
+# set time
+starttime <- Sys.time()
+
+# set working directory
+dpath <- "~/github/ping-log/results/" # latest version of data with missing properly coded
+
+# load required packages ----
+library(data.table) # fast data manipulation
+library(foreign) # loading SPSS/STATA
+library(ggplot2) # slick & easy graphs
+library(gmodels) # for table proportions
+library(knitr) # for kable
+
+# set file name to load
+# we may wish to load a number of them into different tables and then rbind
+# but watch for timeing errors - e.g. RPi may be on UTC
+
+infile <- "octomac_on_annex_wifi_2016-04-28_13-22-59"
+````
+
+# Introduction
+Purpose:
+
+* To test connectivity to:
+ * a home router and 
+ * the wider internet 
+* in order to attempt to work out where connectivity problems are occuring.
+
+Data:
+
+* .csv files produced by pinger.py
+
+Code:
+
+* this code: https://github.com/dataknut/ping-log/blob/master/pinger_process_results.Rmd
+
+```{r, echo=FALSE}
+### Load data & do processing ---------------------------------
+
+# load just the one file
+pingerDT <- fread(paste0(dpath,infile,".csv"))
+
+pingerDT$datetime_r <- as.POSIXct(pingerDT$timestamp)
+
+# remove old datetime
+pingerDT[,timestamp := NULL] # very quick
+```
+
+# Basic responses
+Throughout the following NA usually means ping failed to return.
+
+The file has `r length(pingerDT$datetime_r)` records starting at `r min(pingerDT$datetime_r)` and finishing at `r max(pingerDT$datetime_r)`.
+
+How many rows (cases) & variables and how many records for each host?
+
+````{r, echo=FALSE}
+dim(pingerDT)
+
+````
+
+Did we get any errors?
+````{r, echo=FALSE}
+kable(
+  table(pingerDT$error, pingerDT$host, useNA = "always")
+)
+````
+
+Summary of variables (after converting datetime to R datetime (POSIX))
+````{r, echo=FALSE}
+
+summary(pingerDT)
+````
+
+
+# Results by host
+Distribution of mean ping response times:
+````{r, echo=FALSE}
+pingerDT[,
+         .(
+           N = length(datetime_r),
+           Mean = mean(milliseconds, na.rm = TRUE), # remove any NAs (ping failed to respond)
+           sd = sd(milliseconds, na.rm = TRUE)
+           ),
+         by = host
+         ]
+````
+
+````{r, echo=FALSE}
+# make a pretty graph
+gtitle <- paste0("Ping Data: Key stats ", 
+                 min(pingerDT$datetime_r), 
+                 " to ",
+                 max(pingerDT$datetime_r), 
+                 " for ",
+                 infile
+                 )
+ggplot(pingerDT, aes(x = datetime_r, y = milliseconds)) + 
+  geom_point(aes(color = host, col = "Response time (ms)")) +
+  theme(legend.position = "bottom") +
+  theme(legend.title = element_blank()) +
+  labs(title = gtitle,
+       x = "Time/date",
+       y = "ms"
+  )
+
+ggsave(paste0(dpath,infile, ".png"), 
+       width = 10, height = 10)
+````
+
+---------------------------------
+Last run: `r Sys.time()`
+
+Analysis completed in: `r Sys.time() - starttime` seconds using [knitr](https://cran.r-project.org/package=knitr) & [RStudio](http://www.rstudio.com)
