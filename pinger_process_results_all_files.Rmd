@@ -389,7 +389,7 @@ ggplot(allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThu
        y = "Milliseconds"
   ) +
   facet_grid(label ~ .) +
-  scale_x_datetime(date_labels = "%a %b %d %H:%M", date_breaks = "2 hour", date_minor_breaks = "1 hour") +
+  scale_x_datetime(date_labels = "%a %b %d %H:%M", date_breaks = "2 hour") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
   theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 ````
