@@ -469,19 +469,12 @@ If we now consider the results by hour of the day:
 
 ```{r millisecondsByHour, warning = FALSE, fig.cap = "Mean milliseconds by hour"}
 # make a pretty graph of all data by hour
-resultsByHour_DT <- allPinger_DT[,
-                                 .(
-                                  mean_ms = round(mean(milliseconds, na.rm = TRUE),3)
-                                 ),
-                                 by = .(label,host,r_hour)
-]  
-
-ggplot(resultsByHour_DT, 
-       aes(x = r_hour, y = mean_ms)) +
-  geom_point(aes(color = host, col = "Response time (ms)")) +
+ggplot(allPinger_DT, 
+       aes(x = r_hour, y = milliseconds, col = host)) +
+  stat_summary(fun.data = "mean_sdl", size = 0.1) + # mean +/- 2 SD http://www.inside-r.org/packages/cran/hmisc/docs/smean.sd
   theme(legend.position = "bottom") +
   theme(legend.title = element_blank()) +
-  labs(x = "Date & time",
+  labs(x = "Hour",
        y = "Mean milliseconds"
   ) +
   facet_grid(label ~ .) +
