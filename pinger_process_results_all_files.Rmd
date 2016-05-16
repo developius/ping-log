@@ -200,6 +200,9 @@ allPinger_DT[, timestamp := NULL] # remove
 #print("# -> adding date & hour variable")
 allPinger_DT$r_date <- as.Date(allPinger_DT$r_datetime)
 allPinger_DT$r_hour <- as.POSIXlt(allPinger_DT$r_datetime)$hour
+
+# add an 'on the hour' datetime
+allPinger_DT[, date_hour := as.POSIXct(paste0(r_date," ", r_hour, ":00:00"))]
 ````
 We will now catch potential ping response errors as follows:
 
@@ -326,7 +329,7 @@ The following chart counts errors by hour of each day to see if any particular d
 ````{r errorsByDateHour, warning = FALSE}
 
 # make a pretty graph of all errors by day & hour
-allPinger_DT[, date_hour := as.POSIXct(paste0(r_date," ", r_hour, ":00:00"))]
+
 # this will stack the counts
 ggplot(allPinger_DT[allPinger_DT$error!="OK"], aes(x = date_hour)) + 
   geom_bar(aes(fill = error), position = "stack") +
@@ -376,25 +379,34 @@ Now we will repeat the analysis without aggregation for the last two days of dat
 
 ````{r millisecondsByDateTimeRecent, warning = FALSE, fig.cap = "HubPi results for the last two days (if we have any)"}
 # repeat for yesterday & today
+# this will break if we have no data from today or yesterday for the hubpi
 today <- Sys.Date()
 yesterday <- today - 1
 
-library(scales)
-ggplot(allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThub"], 
-       aes(x = r_datetime, y = milliseconds)) +
-  geom_point(aes(color = host, col = "Response time (ms)")) +
-  theme(legend.position = "bottom") +
-  theme(legend.title = element_blank()) +
-  labs(x = "Date & time",
-       y = "Milliseconds"
-  ) +
-  facet_grid(label ~ .) +
-  scale_x_datetime(date_labels = "%a %b %d %H:%M", date_breaks = "2 hour") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
-  theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+subset <- allPinger_DT[(r_date == today | r_date == yesterday) & label %like% "BThub"]
+
+if(length(subset$label) > 0) {
+  # then we have data for hubpi for this range
+  
+  library(scales)
+  ggplot(subset, 
+         aes(x = r_datetime, y = milliseconds)) +
+    geom_point(aes(color = host, col = "Response time (ms)")) +
+    theme(legend.position = "bottom") +
+    theme(legend.title = element_blank()) +
+    labs(x = "Date & time",
+         y = "Milliseconds"
+    ) +
+    facet_grid(label ~ .) +
+    scale_x_datetime(date_labels = "%a %b %d %H:%M", date_breaks = "2 hour") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+    theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
+} else {
+  print("Skipping as we have no data for hubpi.")
+}
 ````
 
-Finally we repeat that but just for 'today' but for all sources.
+Finally we repeat that but just for 'today' and for all sources.
 
 ````{r millisecondsByDateTimeToday, warning = FALSE, fig.cap = "HubPi results for the last two days (if we have any)"}
 # repeat for yesterday & today
