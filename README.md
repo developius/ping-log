@@ -40,13 +40,27 @@ We usually run the pinger for up to 24 hours collecting ping data every 10-20 se
 
 We use sftp to collect the data every few hours - or every few minutes if we are testing different configurations. At some point we will automate this process. 
 
-Having collated the data we run the R markdown code using RStudio to generate a report. The code will process any .csv file it finds in the 'results' folder.
+Having collated the data we run the R markdown code using RStudio to generate a report. The code will process any .csv.gz (gzipped .csv) file it finds in the 'results' folder.
 
 After all that we argue about what the results show and what to do about it.
 
+## Our conclusions to date
+Essentially:
+ * when the router/hub is plugged directly into the BT phone socket, our results show that our ADSL service is mostly reliable with a fairly low latency (but low bandwidth);
+ * our internal wifi/power line distribution systems are problematic;
+ * the usage demands of four 10-16 year olds during the period 16:00 - 21:00 (when iPads etc are active) causes a lot of local contention/packet loss on our internal distribution system. It is not clear whether this is a powerline/wifi issue or packets are being dropped by one of the wifi routers or even the hub.
+
+## Our current solution:
+ * router/hub is plugged directly in to the BT phone socket;
+ * powerline takes 'ethernet' from the router/hub as far as possible into the house on the same ring main;
+ * two wifi routers pick up the powerline/ethernet 
+ * printer/scanner is directly attached to one of the wifi routers
+ 
+We still have contention 16:00 - 21:00 but the result is less catastrophic than in any other internal network configuration.
+
 ## Code warnings
 It isn't big and it isn't clever:
- * the pinger deals dis-gracefully with ICMP time outs and other ping errors. Some of these are currently caught by the R code but some aren't. For example you well get an 'OK' and an empty value in the milliseconds field even if the ping can't see your internal router - e.g. if you run the vanilla pinger outside your home network. We're working on it.
+ * the pinger deals dis-gracefully with ICMP time outs and other ping errors. Some of these are currently caught by the R code but some aren't. For example you well get an 'OK' and an empty value in the milliseconds field even if the ping can't see your internal router. This may happen if you run the vanilla pinger outside your home network. We're working on it.
  * the R script records quite a few data read warnings that we have not really investigated
  * inevitably [#YMMV](https://en.wiktionary.org/wiki/YMMV)
 
