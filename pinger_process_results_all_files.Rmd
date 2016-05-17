@@ -201,7 +201,7 @@ allPinger_DT[, date_hour := as.POSIXct(paste0(r_date," ", r_hour, ":00:00"))]
 ````
 Loaded `r nrow(allPinger_DT)` rows of data. We will now catch potential ping response errors as follows:
 
-````{r, catchPingErrors, echo = TRUE}
+````{r catchPingErrors, echo = TRUE}
 
 # create uncaught error status ----
   # really nead to fix this in the pinger code
@@ -245,7 +245,7 @@ Loaded `r nrow(allPinger_DT)` rows of data. We will now catch potential ping res
 
 We will now recode the sources as follows to make more meaningful labels for the charts etc:
 
-````{r, recodeLabels, echo = TRUE}
+````{r recodeLabels, echo = TRUE}
 # this assumes you know where they are and so what might cause any step changes in performance
 # this is very hard to automate unless there is a naming convention for input files
 allPinger_DT$label <- ifelse(grepl("hubpi",allPinger_DT$source),
@@ -437,7 +437,7 @@ if(length(subset$label) > 0) {
 And finally, repeat that but just for the last two hours.
 
 ````{r millisecondsByDateTimeLast2Hours, warning = FALSE, fig.cap = "All results for the last two hours (if we have any)"}
-# repeat for yesterday & today
+# repeat for last 2 hours
 today <- Sys.Date()
 now <- Sys.time()
 period <- now - 7200
@@ -456,7 +456,6 @@ if(length(subset$label) > 0) {
          y = "Milliseconds"
     ) +
     facet_grid(label ~ .) +
-    scale_x_datetime(date_labels = "%a %b %d %H:%M", date_breaks = "2 hour") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
     theme(strip.text.y = element_text(size = 8, colour = "red", angle = 0))
 } else {
