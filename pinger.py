@@ -11,7 +11,6 @@
 # code: @developius, @dataknut
 
 
-
 import subprocess
 import time
 import datetime
@@ -32,6 +31,7 @@ urls = [
 	["router", "192.168.1.254"]
 ]
 
+# record start time to use as part of the results filename
 startdt = datetime.datetime.now().strftime(format = "%Y-%m-%d_%H-%M-%S")
 
 ofile = "results/" + sys.argv[1] + "_" + startdt + ".csv"
@@ -46,7 +46,7 @@ with open(ofile, "a") as theFile:
 theFile.close()
 
 while True:
-	if time.time() - (started*60) < duration: # check against duration which is in minutes
+	if time.time() - (started) < duration*60: # check how long we've been running against specified duration which is in minutes
 		with open(ofile, "a") as theFile:
 			for url in urls:
 				now = datetime.datetime.now().strftime(format = "%Y-%m-%d %H:%M:%S")
